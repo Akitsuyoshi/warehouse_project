@@ -36,7 +36,7 @@ def generate_launch_description():
             executable='amcl',
             name='amcl',
             output='screen',
-            parameters=[amcl_config]
+            parameters=[amcl_config, {'use_sim_time': is_sim}]
         )
 
         lifecycle_manager_node = Node(
@@ -61,7 +61,7 @@ def generate_launch_description():
         )
 
         return [map_server_node, amcl_node, lifecycle_manager_node, rviz_node]
-
+        
 
     return LaunchDescription([
         DeclareLaunchArgument(
