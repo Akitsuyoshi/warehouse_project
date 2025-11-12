@@ -42,7 +42,7 @@ def generate_launch_description():
         recovery_node = Node(
             package='nav2_behaviors',
             executable='behavior_server',
-            name='recoveries_server',
+            name='behavior_server',
             parameters=[recovery_yaml] + common_params,
             output='screen'
         )
@@ -66,7 +66,7 @@ def generate_launch_description():
                 'node_names': [
                     'planner_server',
                     'controller_server',
-                    'recoveries_server',
+                    'behavior_server',
                     'bt_navigator'
                 ]
             }]
