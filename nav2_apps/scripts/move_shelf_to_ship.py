@@ -1,65 +1,159 @@
 #! /usr/bin/env python3
 
+import math
+import sys
 import time
-from copy import deepcopy
 
-from geometry_msgs.msg import PoseStamped
-from rclpy.duration import Duration
 import rclpy
-
+from geometry_msgs.msg import PoseStamped
+from std_msgs.msg import String
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
+from custom_interfaces.srv import GoToLoading
+from rcl_interfaces.msg import Parameter, ParameterValue
+from rcl_interfaces.msg import ParameterType
+from rcl_interfaces.srv import SetParameters
+from tf_transformations import euler_from_quaternion
+
+
 
 positions = {
-    "init": [-0.10, -0.015, 0.0, 0.0],
-    "loading": [5.5, -0.015, -0.7071, 0.7071],
-    "shipping": [2.4, 1.15, 0.7071, 0.7071],
+    "init": [-0.1, 0.0, 0.0, 1.0],
+    "loading": [5.45, -0.15, -0.7071, 0.7071],
+    "loading_2": [5.45, -0.15, 1.0, 0.0],
+    "shipping": [2.4, 1.35, 0.7071, 0.7071],
+    "shipping_2": [2.4, 0.0, 1.0, 0.0],
 }
 
-def create_pose(position, navigator):
+def create_pose(position, navigator, backward=0.0):
+    x, y, z, w = positions[position]
     pose = PoseStamped()
     pose.header.frame_id = "map"
     pose.header.stamp = navigator.get_clock().now().to_msg()
-    pose.pose.position.x = positions[position][0]
-    pose.pose.position.y = positions[position][1]
-    pose.pose.orientation.z = positions[position][2]
-    pose.pose.orientation.w = positions[position][3]
+    pose.pose.orientation.x = 0.0
+    pose.pose.orientation.y = 0.0
+    pose.pose.orientation.z = z
+    pose.pose.orientation.w = w
+
+    _, _, yaw = euler_from_quaternion([0.0, 0.0, z, w])
+    pose.pose.position.x = x - backward * math.cos(yaw)
+    pose.pose.position.y = y - backward * math.sin(yaw)
+    pose.pose.position.z = 0.0
     return pose
 
-def move_to_pose(pose, navigator, position):
+def move_to_pose(position, navigator, node, backward=0.0):
+    pose = create_pose(position, navigator, backward)
     navigator.goToPose(pose)
-    result = navigator.getResult()
+    while not navigator.isTaskComplete():
+        rclpy.spin_once(node, timeout_sec=0.1)
 
+    result = navigator.getResult()
     if result == TaskResult.SUCCEEDED:
-        print(f"Arrived {position}")
-    elif result == TaskResult.CANCELED:
-        print(f"Canceled to {position}")
+        node.get_logger().info(f"Arrived at {position}")
+        return True
+    node.get_logger().info(f"Failed to reach {position}")
+    return False
+
+def call_service(node, service_n):
+    client = node.create_client(GoToLoading, service_n)
+    node.get_logger().info("Waiting for /approach_shelf service...")
+
+    if not client.wait_for_service(timeout_sec=5.0):
+        node.get_logger().error("Service unavailable.")
         return False
-    elif result == TaskResult.FAILED:
-        print(f"Failed to {position}")
+
+    req = GoToLoading.Request()
+    req.attach_to_shelf = True
+    future = client.call_async(req)
+    rclpy.spin_until_future_complete(node, future, timeout_sec=30.0)
+    if not future.done():
+        node.get_logger().error("Service timed out")
         return False
+    if future.result():
+        return future.result().complete
+    return False
+
+
+def update_robot_radius(node, radius):
+    costmaps = [
+        "/local_costmap/local_costmap",
+        "/global_costmap/global_costmap",
+    ]
+
+    for cm in costmaps:
+        client = node.create_client(SetParameters, f"{cm}/set_parameters")
+
+        if not client.wait_for_service(timeout_sec=5.0):
+            node.get_logger().error(f"Cannot reach to {cm}/set_parameters")
+            return False
+        
+        param = Parameter(
+            name="robot_radius",
+            value=ParameterValue(
+                type=ParameterType.PARAMETER_DOUBLE,
+                double_value=float(radius)
+            )
+        )
+        req = SetParameters.Request(parameters=[param])
+        future = client.call_async(req)
+        rclpy.spin_until_future_complete(node, future, timeout_sec=5.0)
+    
+    node.get_logger().info(f"Updated robot_radius: {radius}")
     return True
 
+    
 def main():
     rclpy.init()
+    node = rclpy.create_node("robot_move_manager")
     navigator = BasicNavigator()
 
     # Set init pose
-    init_pose = create_pose("init", navigator)
-    navigator.setInitialPose(init_pose)
-
+    navigator.setInitialPose(create_pose("init", navigator))
     navigator.waitUntilNav2Active()
 
-    stages = ["loading", "shipping", "init"]
-    for stage in stages:
-        print(f"Moving to {stage}")
-        pose = create_pose(stage, navigator)
-        if not move_to_pose(pose, navigator, stage):
-            print("Error moving to the next stage. Exiting.")
-            exit(-1)
-        while not navigator.isTaskComplete():
-            pass
-    print("Completed all stages. Exiting")
-    exit(0)
+    # init to loading
+    if not move_to_pose("loading", navigator, node):
+        sys.exit(1)
+    
+    # loading to under shelf
+    if not call_service(node, "/approach_shelf"):
+        sys.exit(1)
+
+    # update robot footprint, considering shelf size
+    update_robot_radius(node, 0.6)
+
+    # under shelf to loading
+    if not move_to_pose("loading_2", navigator, node):
+        sys.exit(1)
+    
+    # loading to shipping
+    if not move_to_pose("shipping", navigator, node):
+        sys.exit(1)
+    
+    # publish /elevator_down
+    elevator_pub = node.create_publisher(String, "/elevator_down", 10)
+    msg = String()
+    msg.data = ""
+    for _ in range(5):
+        elevator_pub.publish(msg)
+        time.sleep(0.1)
+    node.get_logger().info("Published /elevator_down")
+
+
+    # update robot footprint to its original size
+    update_robot_radius(node, 0.3)
+
+    # shipping to shipping_2
+    if not move_to_pose("shipping_2", navigator, node):
+        sys.exit(1)
+
+    # to init
+    if not move_to_pose("init", navigator, node):
+        sys.exit(1)
+    
+    navigator.lifecycleShutdown()
+    node.destroy_node()
+    rclpy.shutdown()    
+
 
 
 if __name__ == "__main__":

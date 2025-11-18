@@ -19,8 +19,8 @@ controller_server:
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.1
-      yaw_goal_tolerance: 0.05
+      xy_goal_tolerance: 0.12
+      yaw_goal_tolerance: 0.06
     # DWB parameters
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"
@@ -52,16 +52,16 @@ controller_server:
       stateful: True
       critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
       BaseObstacle.scale: 1.0
-      PathAlign.scale: 16.0
+      PathAlign.scale: 8.0
       PathAlign.forward_point_distance: 0.1
-      GoalAlign.scale: 12.0
+      GoalAlign.scale: 8.0
       GoalAlign.forward_point_distance: 0.1
-      PathDist.scale: 16.0
-      GoalDist.scale: 12.0
-      RotateToGoal.scale: 12.0
+      PathDist.scale: 12.0
+      GoalDist.scale: 10.0
+      RotateToGoal.scale: 10.0
       RotateToGoal.slowing_factor: 2.0
       RotateToGoal.lookahead_time: -1.0
-      Oscillation.scale: 2.0
+      Oscillation.scale: 1.5
 local_costmap:
   local_costmap:
     ros__parameters:
