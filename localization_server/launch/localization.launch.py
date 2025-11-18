@@ -15,6 +15,8 @@ def generate_launch_description():
         amcl_config_file = 'amcl_config_sim.yaml' if is_sim else 'amcl_config_real.yaml'
         amcl_config = os.path.join(pkg_localization, 'config', amcl_config_file)
         rviz_file = os.path.join(pkg_localization, 'rviz', 'localization.rviz')
+        filter_config_file = 'filters_sim.yaml' if is_sim else 'filters_real.yaml'
+        filters_yaml = os.path.join(get_package_share_directory('path_planner_server'), 'config', filter_config_file)
 
         print(f"[Localization Launch] map_path = {map_path}")
         print(f"[Localization Launch] use_sim_time = {is_sim}")
@@ -39,6 +41,24 @@ def generate_launch_description():
             parameters=[amcl_config, {'use_sim_time': is_sim}]
         )
 
+        filter_server_node = Node(
+            package='nav2_map_server',
+            executable='map_server',
+            name='filter_mask_server',
+            output='screen',
+            emulate_tty=True,
+            parameters=[filters_yaml, {'use_sim_time': is_sim}]
+        )
+
+        costmap_filter_server_node = Node(
+            package='nav2_map_server',
+            executable='costmap_filter_info_server',
+            name='costmap_filter_info_server',
+            output='screen',
+            emulate_tty=True,
+            parameters=[filters_yaml, {'use_sim_time': is_sim}]
+        )
+
         lifecycle_manager_node = Node(
             package='nav2_lifecycle_manager',
             executable='lifecycle_manager',
@@ -47,7 +67,7 @@ def generate_launch_description():
             parameters=[
                 {'use_sim_time': is_sim},
                 {'autostart': True},
-                {'node_names': ['map_server', 'amcl']}
+                {'node_names': ['map_server', 'amcl', 'filter_mask_server', 'costmap_filter_info_server']}
             ]
         )
 
@@ -60,7 +80,7 @@ def generate_launch_description():
             output='screen'
         )
 
-        return [map_server_node, amcl_node, lifecycle_manager_node, rviz_node]
+        return [map_server_node, amcl_node, filter_server_node, costmap_filter_server_node, lifecycle_manager_node, rviz_node]
         
 
     return LaunchDescription([
