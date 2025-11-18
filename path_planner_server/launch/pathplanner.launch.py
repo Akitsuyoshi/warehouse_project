@@ -81,13 +81,19 @@ def generate_launch_description():
             output='screen'
         )
 
+        attach_shelf_node = Node(
+            package='attach_shelf',
+            executable='approach_service_server_node',
+            output='screen')
+
         return [
             controller_node,
             planner_node,
             recovery_node,
             bt_navigator_node,
             lifecycle_manager_node,
-            rviz_node
+            rviz_node,
+            attach_shelf_node,
         ]
 
     return LaunchDescription([

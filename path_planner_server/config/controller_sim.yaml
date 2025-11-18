@@ -2,9 +2,9 @@ controller_server:
   ros__parameters:
     use_sim_time: True
     controller_frequency: 5.0
-    min_x_velocity_threshold: 0.001
+    min_x_velocity_threshold: 0.05
     min_y_velocity_threshold: 0.0
-    min_theta_velocity_threshold: 0.001
+    min_theta_velocity_threshold: 0.05
     failure_tolerance: 0.3
     progress_checker_plugin: "progress_checker"
     goal_checker_plugins: ["general_goal_checker"] 
@@ -13,26 +13,26 @@ controller_server:
     # Progress checker parameters
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
-      required_movement_radius: 0.2
+      required_movement_radius: 0.1
       movement_time_allowance: 15.0
     # Goal checker parameters
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.15
-      yaw_goal_tolerance: 0.1
+      xy_goal_tolerance: 0.1
+      yaw_goal_tolerance: 0.05
     # DWB parameters
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"
       debug_trajectory_details: True
-      min_vel_x: 0.0
+      min_vel_x: -0.15
       min_vel_y: 0.0
-      max_vel_x: 0.26
+      max_vel_x: 0.3
       max_vel_y: 0.0
-      max_vel_theta: 1.0
-      min_speed_xy: 0.0
-      max_speed_xy: 0.26
-      min_speed_theta: 0.0
+      max_vel_theta: 1.57
+      min_speed_xy: 0.1
+      max_speed_xy: 0.3
+      min_speed_theta: 0.1
       acc_lim_x: 2.5
       acc_lim_y: 0.0
       acc_lim_theta: 3.2
@@ -42,25 +42,26 @@ controller_server:
       vx_samples: 20
       vy_samples: 5
       vtheta_samples: 20
-      sim_time: 1.5
+      sim_time: 1.7
       linear_granularity: 0.05
       angular_granularity: 0.025
       transform_tolerance: 0.2
-      xy_goal_tolerance: 0.15
+      xy_goal_tolerance: 0.1
       trans_stopped_velocity: 0.05
       short_circuit_trajectory_evaluation: True
       stateful: True
       critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
-      BaseObstacle.scale: 0.2
+      BaseObstacle.scale: 1.0
       PathAlign.scale: 16.0
       PathAlign.forward_point_distance: 0.1
       GoalAlign.scale: 12.0
       GoalAlign.forward_point_distance: 0.1
       PathDist.scale: 16.0
       GoalDist.scale: 12.0
-      RotateToGoal.scale: 16.0
-      RotateToGoal.slowing_factor: 5.0
+      RotateToGoal.scale: 12.0
+      RotateToGoal.slowing_factor: 2.0
       RotateToGoal.lookahead_time: -1.0
+      Oscillation.scale: 2.0
 local_costmap:
   local_costmap:
     ros__parameters:
@@ -77,8 +78,8 @@ local_costmap:
       plugins: ["voxel_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 4.0
-        inflation_radius: 0.15
+        cost_scaling_factor: 3.0
+        inflation_radius: 0.25
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: True
