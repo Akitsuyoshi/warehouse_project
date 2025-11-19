@@ -119,13 +119,13 @@ def main():
         sys.exit(1)
 
     # update robot footprint, considering shelf size
-    update_robot_radius(node, 0.6)
+    update_robot_radius(node, 0.55)
 
-    # under shelf to loading
+    # under shelf to loading_2
     if not move_to_pose("loading_2", navigator, node):
         sys.exit(1)
     
-    # loading to shipping
+    # loading_2 to shipping
     if not move_to_pose("shipping", navigator, node):
         sys.exit(1)
     
