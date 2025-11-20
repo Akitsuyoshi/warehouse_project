@@ -73,32 +73,43 @@ def call_service(node, service_n):
     return False
 
 
-def update_robot_radius(node, radius):
-    costmaps = [
-        "/local_costmap/local_costmap",
-        "/global_costmap/global_costmap",
-    ]
+def update_float_parameters(node, params_dict, target_nodes=None):
+    if target_nodes is None:
+        target_nodes = [
+            "/local_costmap/local_costmap",
+            "/global_costmap/global_costmap",
+        ]
 
-    for cm in costmaps:
-        client = node.create_client(SetParameters, f"{cm}/set_parameters")
-
-        if not client.wait_for_service(timeout_sec=5.0):
-            node.get_logger().error(f"Cannot reach to {cm}/set_parameters")
-            return False
-        
-        param = Parameter(
-            name="robot_radius",
-            value=ParameterValue(
-                type=ParameterType.PARAMETER_DOUBLE,
-                double_value=float(radius)
+    param_list = []
+    for name, value in params_dict.items():
+        param_list.append(
+            Parameter(
+                name=name,
+                value=ParameterValue(
+                    type=ParameterType.PARAMETER_DOUBLE,
+                    double_value=float(value)
+                )
             )
         )
-        req = SetParameters.Request(parameters=[param])
+
+    for target in target_nodes:
+        client = node.create_client(SetParameters, f"{target}/set_parameters")
+
+        if not client.wait_for_service(timeout_sec=5.0):
+            node.get_logger().error(f"Cannot reach {target}/set_parameters")
+            return False
+
+        req = SetParameters.Request(parameters=param_list)
         future = client.call_async(req)
         rclpy.spin_until_future_complete(node, future, timeout_sec=5.0)
-    
-    node.get_logger().info(f"Updated robot_radius: {radius}")
+
+        if future.done():
+            node.get_logger().info(f"Updated float params on {target}")
+        else:
+            node.get_logger().warn(f"Timeout updating {target}")
+
     return True
+
 
     
 def main():
@@ -118,8 +129,15 @@ def main():
     if not call_service(node, "/approach_shelf"):
         sys.exit(1)
 
-    # update robot footprint, considering shelf size
-    update_robot_radius(node, 0.55)
+    # update controller server param, considering shelf size
+    update_float_parameters(node, {
+        "robot_radius": 0.55,
+        "voxel_layer.obstacle_min_range": 0.55,
+        "voxel_layer.raytrace_min_range": 0.55
+    }, target_nodes=[
+        "/local_costmap/local_costmap",
+        "/global_costmap/global_costmap",
+    ])
 
     # under shelf to loading_2
     if not move_to_pose("loading_2", navigator, node):
@@ -139,8 +157,16 @@ def main():
     node.get_logger().info("Published /elevator_down")
 
 
-    # update robot footprint to its original size
-    update_robot_radius(node, 0.3)
+    # update controller server param to its original size
+    update_float_parameters(node, {
+        "robot_radius": 0.30,
+        "voxel_layer.obstacle_min_range": 0.00,
+        "voxel_layer.raytrace_min_range": 0.00
+    }, target_nodes=[
+        "/local_costmap/local_costmap",
+        "/global_costmap/global_costmap",
+    ])
+
 
     # shipping to shipping_2
     if not move_to_pose("shipping_2", navigator, node):
