@@ -24,6 +24,10 @@ positions = {
     "shipping_2": [2.4, 0.0, 1.0, 0.0],
 }
 
+footprint_normal = "[[0.30, 0.0], [0.2121, 0.2121], [0.0, 0.30], [-0.2121, 0.2121], [-0.30, 0.0], [-0.2121, -0.2121], [0.0, -0.30], [0.2121, -0.2121]]"
+footprint_shelf = "[[0.55, 0.0], [0.3890, 0.3890], [0.0, 0.55], [-0.3890, 0.3890], [-0.55, 0.0], [-0.3890, -0.3890], [0.0, -0.55], [0.3890, -0.3890]]"
+
+
 def create_pose(position, navigator, backward=0.0):
     x, y, z, w = positions[position]
     pose = PoseStamped()
@@ -82,15 +86,23 @@ def update_float_parameters(node, params_dict, target_nodes=None):
 
     param_list = []
     for name, value in params_dict.items():
-        param_list.append(
-            Parameter(
-                name=name,
-                value=ParameterValue(
-                    type=ParameterType.PARAMETER_DOUBLE,
-                    double_value=float(value)
+        if isinstance(value, float):
+            param_list.append(
+                Parameter(
+                    name=name,
+                    value=ParameterValue(type=ParameterType.PARAMETER_DOUBLE, double_value=value)
                 )
             )
-        )
+        elif isinstance(value, str):
+            param_list.append(
+                Parameter(
+                    name=name,
+                    value=ParameterValue(type=ParameterType.PARAMETER_STRING, string_value=value)
+                )
+            )
+        else:
+            node.get_logger().warn(f"Unsupported parameter type for {name}")
+            continue
 
     for target in target_nodes:
         client = node.create_client(SetParameters, f"{target}/set_parameters")
@@ -131,7 +143,7 @@ def main():
 
     # update controller server param, considering shelf size
     update_float_parameters(node, {
-        "robot_radius": 0.55,
+        "footprint": footprint_shelf,
         "voxel_layer.obstacle_min_range": 0.55,
         "voxel_layer.raytrace_min_range": 0.55
     }, target_nodes=[
@@ -159,7 +171,7 @@ def main():
 
     # update controller server param to its original size
     update_float_parameters(node, {
-        "robot_radius": 0.30,
+        "footprint": footprint_normal,
         "voxel_layer.obstacle_min_range": 0.00,
         "voxel_layer.raytrace_min_range": 0.00
     }, target_nodes=[
@@ -176,7 +188,6 @@ def main():
     if not move_to_pose("init", navigator, node):
         sys.exit(1)
     
-    navigator.lifecycleShutdown()
     node.destroy_node()
     rclpy.shutdown()    
 
