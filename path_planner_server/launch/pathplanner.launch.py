@@ -15,6 +15,7 @@ def generate_launch_description():
         bt_navigator_yaml = os.path.join(pkg_dir, 'config', 'bt_navigator_sim.yaml' if is_sim else 'bt_navigator_real.yaml')
         recovery_yaml = os.path.join(pkg_dir, 'config', 'recoveries_sim.yaml' if is_sim else 'recoveries_real.yaml')
         rviz_file = os.path.join(pkg_dir, 'rviz', 'pathplanning.rviz')
+        approach_service_node_name = 'approach_service_server_node' if is_sim else 'approach_service_server_real_node'
 
         print(f"[Path Planner Launch] use_sim_time = {is_sim}")
         print(f"[Path Planner Launch] controller_yaml = {controller_yaml}")
@@ -83,8 +84,10 @@ def generate_launch_description():
 
         attach_shelf_node = Node(
             package='attach_shelf',
-            executable='approach_service_server_node',
-            output='screen')
+            executable=approach_service_node_name,
+            parameters=common_params,
+            output='screen'
+        )
 
         return [
             controller_node,
