@@ -13,6 +13,8 @@ from rcl_interfaces.msg import Parameter, ParameterValue
 from rcl_interfaces.msg import ParameterType
 from rcl_interfaces.srv import SetParameters
 from tf_transformations import euler_from_quaternion
+from geometry_msgs.msg import Twist
+
 
 
 
@@ -110,6 +112,20 @@ def update_float_parameters(node, params_dict, target_nodes=None):
 
     return True
 
+
+def drive_backward(node, duration=1.0, speed=-0.1):
+    cmd_pub = node.create_publisher(Twist, "/cmd_vel", 10)
+    twist = Twist()
+    twist.linear.x = speed     # negative = backward
+
+    end_time = node.get_clock().now().nanoseconds + duration * 1e9
+    while node.get_clock().now().nanoseconds < end_time:
+        cmd_pub.publish(twist)
+        time.sleep(0.05)
+
+    # stop
+    cmd_pub.publish(Twist())
+
     
 def main():
     rclpy.init()
@@ -147,6 +163,9 @@ def main():
         "/local_costmap/local_costmap",
         "/global_costmap/global_costmap",
     ])
+
+    drive_backward(node, duration=6.0, speed=-0.15)
+    node.get_logger().info("Drive backward")
 
     # under shelf to loading
     if not move_to_pose("loading_2", navigator, node):
