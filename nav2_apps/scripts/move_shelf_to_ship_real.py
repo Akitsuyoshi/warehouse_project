@@ -20,8 +20,8 @@ from geometry_msgs.msg import Twist
 
 positions = {
     "init": [-0.1, 0.0, 0.0, 1.0],
-    "loading": [4.1, -0.7, -0.7071, 0.7071],
-    "loading_2": [4.1, -0.7, 1.0, 0.0],
+    "loading": [4.0, -0.6, -0.7071, 0.7071],
+    "loading_2": [4.0, -0.6, 1.0, 0.0],
     "shipping": [1.6, 1.1, 0.7071, 0.7071],
     "shipping_2": [1.6, 0.0, 1.0, 0.0],
 }
@@ -70,7 +70,7 @@ def call_service(node, service_n):
     req = GoToLoading.Request()
     req.attach_to_shelf = True
     future = client.call_async(req)
-    rclpy.spin_until_future_complete(node, future, timeout_sec=30.0)
+    rclpy.spin_until_future_complete(node, future, timeout_sec=35.0)
     if not future.done():
         node.get_logger().error("Service timed out")
         return False
@@ -154,17 +154,22 @@ def main():
     
     # loading to under shelf
     if not call_service(node, "/approach_shelf"):
-        sys.exit(1)
+        print("Failed erive call, trying again")
+        drive_backward(node, duration=4.0, speed=-0.15)
+        # call again
+        if not call_service(node, "/approach_shelf"):
+            print("Failed erive call, exiting")
+            sys.exit(1)
     
     # publish /elevator_up
     elevator_pub = node.create_publisher(String, "/elevator_up", 10)
     msg = String()
     msg.data = ""
-    for _ in range(5):
+    for _ in range(3):
         elevator_pub.publish(msg)
-        time.sleep(0.1)
+        time.sleep(1.0)
     node.get_logger().info("Published /elevator_up")
-    time.sleep(3.0)
+    time.sleep(2.0)
 
     # update controller server param, considering shelf size
     update_float_parameters(node, {
@@ -191,11 +196,11 @@ def main():
     elevator_pub = node.create_publisher(String, "/elevator_down", 10)
     msg = String()
     msg.data = ""
-    for _ in range(5):
+    for _ in range(3):
         elevator_pub.publish(msg)
-        time.sleep(0.1)
+        time.sleep(1.0)
     node.get_logger().info("Published /elevator_down")
-    time.sleep(3.0)
+    time.sleep(2.0)
 
     # update controller server param to its original size
     update_float_parameters(node, {
