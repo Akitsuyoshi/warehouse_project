@@ -19,9 +19,9 @@ from geometry_msgs.msg import Twist
 
 
 positions = {
-    "init": [-0.1, 0.0, 0.0, 1.0],
-    "loading": [4.0, -0.6, -0.7071, 0.7071],
-    "loading_2": [4.0, -0.6, 1.0, 0.0],
+    "init": [0.0, 0.0, 0.0, 1.0],
+    "loading": [4.1, -0.4, -0.7071, 0.7071],
+    "loading_2": [4.1, -0.4, 1.0, 0.0],
     "shipping": [1.6, 1.1, 0.7071, 0.7071],
     "shipping_2": [1.6, 0.0, 1.0, 0.0],
 }
@@ -70,7 +70,7 @@ def call_service(node, service_n):
     req = GoToLoading.Request()
     req.attach_to_shelf = True
     future = client.call_async(req)
-    rclpy.spin_until_future_complete(node, future, timeout_sec=35.0)
+    rclpy.spin_until_future_complete(node, future, timeout_sec=40.0)
     if not future.done():
         node.get_logger().error("Service timed out")
         return False
@@ -154,12 +154,13 @@ def main():
     
     # loading to under shelf
     if not call_service(node, "/approach_shelf"):
-        print("Failed erive call, trying again")
+        print("Failed serive call")
         drive_backward(node, duration=4.0, speed=-0.15)
-        # call again
-        if not call_service(node, "/approach_shelf"):
-            print("Failed erive call, exiting")
-            sys.exit(1)
+        sys.exit(1)
+        # # call again
+        # if not call_service(node, "/approach_shelf"):
+        #     print("Failed erive call, exiting")
+        #     sys.exit(1)
     
     # publish /elevator_up
     elevator_pub = node.create_publisher(String, "/elevator_up", 10)
